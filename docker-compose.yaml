@@ -1,0 +1,24 @@
+services:
+  traefik:
+    image: "traefik:v3.4"
+    environment:
+      TRAEFIK_ENTRYPOINTS_TRAEFIK_ADDRESS: ":8080"
+      TRAEFIK_ENTRYPOINTS_WEB_ADDRESS: ":80"
+      TRAEFIK_API_INSECURE: true
+      TRAEFIK_PING_ENTRYPOINT: "web"
+      TRAEFIK_PROVIDERS_HTTP_ENDPOINT: "http://configuration-server:4000"
+      TRAEFIK_PROVIDERS_HTTP_POLLINTERVAL: "5s"
+    ports:
+      - "81:80"
+      - "8081:8080"
+
+  configuration-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        TARGET_CMD: cmd/azure-app-configuration-server
+    env_file:
+      - .env
+    ports:
+      - "4000:4000"

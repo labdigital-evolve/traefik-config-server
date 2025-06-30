@@ -15,7 +15,6 @@ import (
 
 type config struct {
 	Endpoint string `env:"AZURE_APP_CONFIGURATION_ENDPOINT"`
-	Port     string `env:"Port" envDefault:":9000"`
 }
 
 var cfg config
@@ -75,8 +74,8 @@ func main() {
 		}
 	})
 
-	log.Info().Msgf("Starting server on port %s", cfg.Port)
-	if err := http.ListenAndServe(cfg.Port, nil); err != nil {
+	log.Info().Msgf("Starting server on port %s", ":4000")
+	if err := http.ListenAndServe(":4000", nil); err != nil {
 		log.Error().Msgf("Failed to start server: %s", err)
 		os.Exit(1)
 	}
