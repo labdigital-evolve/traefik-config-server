@@ -14,14 +14,6 @@ jobs:
       - name: Check out code
         uses: actions/checkout@v4
 
-      - name: Get goreleaser app token
-        id: get-app-token
-        uses: labd/action-gh-app-token@main
-        with:
-          app-id: ${{ secrets.MCI_APP_ID }}
-          private-key: ${{ secrets.MCI_APP_PRIVATE_KEY }}
-          installation-id: ${{ secrets.MCI_APP_INSTALLATION_ID }}
-
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
