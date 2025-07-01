@@ -1,7 +1,6 @@
 package internal
 
 import (
-	"fmt"
 	"github.com/rs/zerolog/log"
 	"github.com/traefik/traefik/v3/pkg/config/dynamic"
 )
@@ -10,7 +9,7 @@ func MergeConfigurations(configurations dynamic.Configurations) *dynamic.Configu
 	var merged = &dynamic.Configuration{}
 
 	for key, configuration := range configurations {
-		merged.HTTP = mergeHttp(merged.HTTP, configuration.HTTP, key)
+		merged.HTTP = mergeHttp(merged.HTTP, configuration.HTTP)
 
 		if configuration.TCP != nil {
 			log.Warn().Msgf("TCP configuration for %s is not supported yet, skipping", key)
@@ -28,7 +27,7 @@ func MergeConfigurations(configurations dynamic.Configurations) *dynamic.Configu
 	return merged
 }
 
-func mergeHttp(root *dynamic.HTTPConfiguration, upstream *dynamic.HTTPConfiguration, key string) *dynamic.HTTPConfiguration {
+func mergeHttp(root *dynamic.HTTPConfiguration, upstream *dynamic.HTTPConfiguration) *dynamic.HTTPConfiguration {
 	if root == nil {
 		root = &dynamic.HTTPConfiguration{
 			Routers:           make(map[string]*dynamic.Router),
@@ -40,30 +39,23 @@ func mergeHttp(root *dynamic.HTTPConfiguration, upstream *dynamic.HTTPConfigurat
 	}
 
 	for rKey, httpRouter := range upstream.Routers {
-		httpRouter.Service = fmt.Sprintf("%s-%s", key, httpRouter.Service)
-
-		var middlewareKeys []string
-		for _, middleware := range httpRouter.Middlewares {
-			middlewareKeys = append(middlewareKeys, fmt.Sprintf("%s-%s", key, middleware))
-		}
-		httpRouter.Middlewares = middlewareKeys
-		root.Routers[fmt.Sprintf("%s-%s", key, rKey)] = httpRouter
+		root.Routers[rKey] = httpRouter
 	}
 
 	for sKey, httpService := range upstream.Services {
-		root.Services[fmt.Sprintf("%s-%s", key, sKey)] = httpService
+		root.Services[sKey] = httpService
 	}
 
 	for mKey, middleware := range upstream.Middlewares {
-		root.Middlewares[fmt.Sprintf("%s-%s", key, mKey)] = middleware
+		root.Middlewares[mKey] = middleware
 	}
 
 	for mKey, models := range upstream.Models {
-		root.Models[fmt.Sprintf("%s-%s", key, mKey)] = models
+		root.Models[mKey] = models
 	}
 
 	for tKey, serversTransport := range upstream.ServersTransports {
-		root.ServersTransports[fmt.Sprintf("%s-%s", key, tKey)] = serversTransport
+		root.ServersTransports[tKey] = serversTransport
 	}
 
 	return root
