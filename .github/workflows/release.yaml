@@ -45,12 +45,10 @@ jobs:
           args: --clean --release-notes=${{ env.RELEASE_NOTES_PATH }} --skip=validate
         env:
           GORELEASER_CURRENT_TAG: ${{ env.GORELEASER_CURRENT_TAG }}
-          GITHUB_TOKEN: ${{ steps.get-app-token.outputs.app-token }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GOPATH: ${{ env.GOPATH }}
-          CHOCOLATEY_API_KEY: ${{ secrets.CHOCOLATEY_API_KEY }}
 
       - name: Upload release
         uses: actions/upload-artifact@v4
         with:
-          name: mach-composer
           path: dist/*

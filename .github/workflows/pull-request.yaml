@@ -23,14 +23,6 @@ jobs:
         with:
           go-version-file: go.mod
 
-      - name: Set up Task
-        uses: arduino/setup-task@v2
-        with:
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Set up Terraform
-        uses: hashicorp/setup-terraform@v3
-
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v7
         with:
@@ -38,7 +30,7 @@ jobs:
 
       - name: Run tests
         run: |
-          task cover
+          go test -tags=testing -race -coverprofile=coverage.out -covermode=atomic ./...
           mkdir -p output
           cp coverage.out output/coverage.out
 
@@ -51,7 +43,7 @@ jobs:
           name: output
           path: output/**/*
 
-      - name: build binary
+      - name: build binaries
         uses: goreleaser/goreleaser-action@v6
         with:
           args: build --snapshot --clean --single-target
