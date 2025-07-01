@@ -1,0 +1,73 @@
+name: Create beta release
+
+on:
+  workflow_dispatch:
+    inputs:
+      next:
+        description: 'The next increment to create the release for'
+        required: true
+        default: 'minor'
+        type: choice
+        options:
+          - major
+          - minor
+
+jobs:
+  goreleaser:
+    # We don't want ubuntu-24-4 yet, because it is missing some packages
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch tags
+        run: git fetch --force --tags
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Get hash
+        shell: bash
+        run: |
+          HASH=$(git rev-parse --short "$GITHUB_SHA")
+          echo "HASH=$HASH" >> $GITHUB_ENV
+
+      - name: Get the next potential version
+        id: next-tag
+        uses: miniscruff/changie-action@v2
+        with:
+          version: latest
+          args: next -p beta-${{ env.HASH }} ${{ github.event.inputs.next }}
+
+      - name: Output changes
+        uses: miniscruff/changie-action@v2
+        id: changelog
+        with:
+          version: latest
+          args: batch --dry-run -p beta-${{ env.HASH }} ${{ github.event.inputs.next }}
+
+      - name: Save ChangeLog to file
+        id: save_changes
+        run: |
+          tmpfile=$(mktemp)
+          echo "${{ steps.changelog.outputs.output }}" > $tmpfile
+          echo  "changelog_file=$tmpfile"  >> $GITHUB_OUTPUT
+        shell: bash
+
+      - name: GoReleaser
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          args: release --clean --skip=validate --release-notes ${{ steps.save_changes.outputs.changelog_file }}
+        env:
+          GORELEASER_CURRENT_TAG: ${{ steps.next-tag.outputs.output }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GOPATH: ${{ env.GOPATH }}
+
+      - name: Upload release
+        uses: actions/upload-artifact@v4
+        with:
+          path: dist/*

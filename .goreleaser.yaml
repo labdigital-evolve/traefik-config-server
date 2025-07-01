@@ -1,0 +1,36 @@
+project_name: traefik-config-server
+
+builds:
+  - id: aac-traefik-configuration-server
+    main: cmd/aac-traefik-configuration-server/main.go
+    binary: bin/aac-traefik-configuration-server
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - freebsd
+      - windows
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+      - arm
+    mod_timestamp: '{{ .CommitTimestamp }}'
+
+release:
+  mode: replace
+  prerelease: auto
+
+changelog:
+  use: github
+  disable: false
+
+archives:
+  - id: aac-traefik-configuration-server
+    name_template: "aac-traefik-configuration-server-{{.Version}}-{{.Os}}-{{.Arch}}{{ if .Arm }}v{{.Arm }}{{ end }}"
+    format: tar.gz
+    files:
+      - LICENSE
+    format_overrides:
+      - goos: windows
+        format: zip

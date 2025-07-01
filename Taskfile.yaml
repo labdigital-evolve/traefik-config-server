@@ -1,0 +1,29 @@
+version: '3'
+
+tasks:
+  default:
+    cmd: task --list-all
+
+  build:
+    env:
+      GORELEASER_CURRENT_TAG: "v0.0.0"
+    cmd: goreleaser build --snapshot --clean --single-target
+
+  download:
+    cmd: go mod download
+
+  tidy:
+    cmd: go mod tidy -v
+
+  format:
+    cmd: go fmt ./...
+
+  lint:
+    cmd: golangci-lint run --issues-exit-code=0 --timeout=5m --build-tags testing
+
+  generate:
+    cmd: go generate ./...
+
+  test:
+    cmd: go test -tags=testing -race ./...
+
