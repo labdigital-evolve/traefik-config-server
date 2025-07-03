@@ -1,0 +1,7 @@
+### GET configuration
+GET http://localhost:4000/configuration
+Accept: application/json
+
+### GET healthcheck
+GET http://localhost:4000/healthcheck
+Accept: application/json

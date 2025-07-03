@@ -6,15 +6,16 @@ toolchain go1.24.3
 
 require (
 	github.com/Azure/AppConfiguration-GoProvider/azureappconfiguration v1.0.0
+	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.18.0
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.10.1
+	github.com/Azure/azure-sdk-for-go/sdk/data/azappconfig v1.2.0
 	github.com/caarlos0/env/v11 v11.3.1
+	github.com/mitchellh/mapstructure v1.5.0
 	github.com/rs/zerolog v1.33.0
 	github.com/traefik/traefik/v3 v3.4.3
 )
 
 require (
-	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.18.0 // indirect
-	github.com/Azure/azure-sdk-for-go/sdk/data/azappconfig v1.2.0 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/internal v1.11.1 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/azsecrets v1.3.1 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/internal v1.1.1 // indirect

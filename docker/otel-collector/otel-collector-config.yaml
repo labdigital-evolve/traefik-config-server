@@ -1,0 +1,41 @@
+receivers:
+  otlp:
+    protocols:
+      http:
+        endpoint: "0.0.0.0:4318" # This is the default HTTP endpoint for OTLP
+        cors:
+          allowed_origins:
+            - "*"
+          allowed_headers:
+            - "*"
+          max_age: 7200
+      grpc:
+        endpoint: "0.0.0.0:4317" # This is the default gRPC endpoint for OTLP
+
+exporters:
+  otlphttp:
+    endpoint: "http://jaeger:4318" # Jaeger gRPC endpoint
+    tls:
+      insecure: true
+      insecure_skip_verify: true
+  prometheus:
+    endpoint: "0.0.0.0:9474" # Prometheus endpoint for scraping
+    send_timestamps: true
+    metric_expiration: 180m
+
+processors:
+  batch:
+    timeout: 1s # Reduces wait time before sending a batch, default is 5s
+    send_batch_size: 512 # Number of spans in each batch; adjust based on load
+    send_batch_max_size: 1024 # Maximum number of spans in a batch (larger can mean fewer sends)
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [otlphttp]
+    metrics:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [prometheus]
