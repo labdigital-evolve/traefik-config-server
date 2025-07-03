@@ -11,7 +11,7 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/data/azappconfig v1.2.0
 	github.com/caarlos0/env/v11 v11.3.1
 	github.com/mitchellh/mapstructure v1.5.0
-	github.com/rs/zerolog v1.33.0
+	github.com/rs/zerolog v1.34.0
 	github.com/traefik/traefik/v3 v3.4.3
 )
 
