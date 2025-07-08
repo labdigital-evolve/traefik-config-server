@@ -14,10 +14,13 @@ Currently, the following implementations are available:
 
 ### Azure App Configuration
 
-| Environment Variable                  | Type   | Description                                               |
-|---------------------------------------|--------|-----------------------------------------------------------|
-| AZURE_APP_CONFIGURATION_ENDPOINT      | string | The endpoint URL for Azure App Configuration              |
-| AZURE_CLIENT_ID                       | string | The Azure client ID used for authentication (if required) |
+| Environment Variable             | Type          | Default       | Description                                                        |
+|----------------------------------|---------------|---------------|--------------------------------------------------------------------|
+| AZURE_APP_CONFIGURATION_ENDPOINT | string        | -             | The endpoint URL for Azure App Configuration                       |
+| AZURE_CLIENT_ID                  | string        | -             | The Azure client ID used for authentication (if required)          |
+| LOG_LEVEL                        | string        | INFO          | Log level (e.g., DEBUG, INFO, WARN, ERROR)                         |
+| REFRESH_INTERVAL                 | time.Duration | 60s           | Interval for refreshing configuration from Azure App Configuration |
+| LABEL_FILTER                     | string        | configuration | Label filter for selecting configuration entries                   |
 
 The Azure Client ID needs to have the `App Configuration Data Reader` role assigned to it.
 

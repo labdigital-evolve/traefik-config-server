@@ -22,6 +22,7 @@ type config struct {
 	LogLevel        string        `env:"LOG_LEVEL" envDefault:"INFO"`
 	Endpoint        string        `env:"AZURE_APP_CONFIGURATION_ENDPOINT"`
 	RefreshInterval time.Duration `env:"REFRESH_INTERVAL" envDefault:"60s"`
+	LabelFilter     string        `env:"LABEL_FILTER" envDefault:"configuration"`
 }
 
 var cfg config
@@ -55,6 +56,12 @@ func main() {
 	}
 
 	appConfig, err := azureappconfiguration.Load(ctx, authOptions, &azureappconfiguration.Options{
+		Selectors: []azureappconfiguration.Selector{
+			{
+				KeyFilter:   "*",
+				LabelFilter: cfg.LabelFilter,
+			},
+		},
 		RefreshOptions: azureappconfiguration.KeyValueRefreshOptions{
 			Interval: cfg.RefreshInterval,
 			Enabled:  true,
