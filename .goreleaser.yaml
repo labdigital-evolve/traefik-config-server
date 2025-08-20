@@ -13,6 +13,18 @@ builds:
       - amd64
       - arm64
     mod_timestamp: '{{ .CommitTimestamp }}'
+  - id: aac-traefik-nested-configuration-server
+    main: cmd/aac-traefik-nested-configuration-server/main.go
+    binary: bin/aac-traefik-nested-configuration-server
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    mod_timestamp: '{{ .CommitTimestamp }}'
 
 release:
   mode: replace
@@ -25,6 +37,11 @@ changelog:
 archives:
   - id: aac-traefik-configuration-server
     name_template: "aac-traefik-configuration-server-{{.Version}}-{{.Os}}-{{.Arch}}{{ if .Arm }}v{{.Arm }}{{ end }}"
+    format: tar.gz
+    files:
+      - LICENSE
+  - id: aac-traefik-nested-configuration-server
+    name_template: "aac-traefik-nested-configuration-server-{{.Version}}-{{.Os}}-{{.Arch}}{{ if .Arm }}v{{.Arm }}{{ end }}"
     format: tar.gz
     files:
       - LICENSE
