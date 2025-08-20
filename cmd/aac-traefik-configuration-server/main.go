@@ -22,7 +22,7 @@ type config struct {
 	LogLevel        string        `env:"LOG_LEVEL" envDefault:"INFO"`
 	Endpoint        string        `env:"AZURE_APP_CONFIGURATION_ENDPOINT"`
 	RefreshInterval time.Duration `env:"REFRESH_INTERVAL" envDefault:"60s"`
-	LabelFilter     string        `env:"LABEL_FILTER" envDefault:"configuration"`
+	LabelFilter     string        `env:"LABEL_FILTER"`
 	KeyFilter       string        `env:"KEY_FILTER" envDefault:"*"`
 }
 
