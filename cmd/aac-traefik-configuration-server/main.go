@@ -23,6 +23,7 @@ type config struct {
 	Endpoint        string        `env:"AZURE_APP_CONFIGURATION_ENDPOINT"`
 	RefreshInterval time.Duration `env:"REFRESH_INTERVAL" envDefault:"60s"`
 	LabelFilter     string        `env:"LABEL_FILTER" envDefault:"configuration"`
+	KeyFilter       string        `env:"KEY_FILTER" envDefault:"*"`
 }
 
 var cfg config
@@ -58,7 +59,7 @@ func main() {
 	appConfig, err := azureappconfiguration.Load(ctx, authOptions, &azureappconfiguration.Options{
 		Selectors: []azureappconfiguration.Selector{
 			{
-				KeyFilter:   "*",
+				KeyFilter:   cfg.KeyFilter,
 				LabelFilter: cfg.LabelFilter,
 			},
 		},
