@@ -34,7 +34,6 @@ func init() {
 		log.Error().Msgf("Failed to parse environment variables: %v", err)
 		os.Exit(1)
 	}
-
 	logLevel, err := zerolog.ParseLevel(cfg.LogLevel)
 	if err != nil {
 		log.Error().Msgf("Invalid log level: %s", cfg.LogLevel)
@@ -45,6 +44,8 @@ func init() {
 
 func main() {
 	var ctx = context.Background()
+
+	log.Debug().Msgf("Using Azure App Configuration endpoint: %s", cfg.Endpoint)
 
 	var credentials, err = azidentity.NewDefaultAzureCredential(nil)
 	if err != nil {
@@ -82,7 +83,7 @@ func main() {
 
 	var combinedConfig, refreshErr = loadConfigurations(appConfig)
 	if refreshErr != nil {
-		log.Error().Msgf("Failed to load configurations: %v", err)
+		log.Error().Msgf("Failed to load configurations: %v", refreshErr)
 		os.Exit(1)
 	}
 
@@ -98,7 +99,7 @@ func main() {
 		}
 
 		if refreshErr != nil {
-			log.Error().Msgf("Failed to load Azure App Configuration: %v", err)
+			log.Error().Msgf("Failed to load Azure App Configuration: %v", refreshErr)
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
@@ -133,6 +134,21 @@ func main() {
 	}
 }
 
+// flattenConfigs recursively flattens nested maps using dot notation for keys.
+func flattenConfigs(prefix string, in map[string]any, out map[string]any) {
+	for k, v := range in {
+		fullKey := k
+		if prefix != "" {
+			fullKey = prefix + "." + k
+		}
+		if subMap, ok := v.(map[string]any); ok {
+			flattenConfigs(fullKey, subMap, out)
+		} else {
+			out[fullKey] = v
+		}
+	}
+}
+
 func loadConfigurations(appConfig *azureappconfiguration.AzureAppConfiguration) (*dynamic.Configuration, error) {
 	var configurations = make(dynamic.Configurations)
 
@@ -142,40 +158,64 @@ func loadConfigurations(appConfig *azureappconfiguration.AzureAppConfiguration) 
 	}
 
 	var configs map[string]any
-
 	if err := json.Unmarshal(bytes, &configs); err != nil {
 		return nil, err
 	}
 
-	for key, c := range configs {
-		var newConfig dynamic.Configuration
+	log.Debug().Msgf("Raw configs from Azure: %#v", configs)
 
-		// Test if c is a string, if so, try to unmarshal it as JSON
-		if str, ok := c.(string); ok {
-			if err := json.Unmarshal([]byte(str), &newConfig); err != nil {
+	// Helper to decode a value (string or map) into a dynamic.Configuration
+	decodeConfig := func(key string, val any) *dynamic.Configuration {
+		var newConfig dynamic.Configuration
+		switch v := val.(type) {
+		case string:
+			if err := json.Unmarshal([]byte(v), &newConfig); err != nil {
 				log.Error().Msgf("Failed to unmarshal configuration for key %s: %s", key, err)
-				continue
+				return nil
 			}
-		} else {
+		case map[string]any:
 			decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
 				ErrorUnused: true,
 				Result:      &newConfig,
 			})
 			if err != nil {
-				return nil, err
+				log.Error().Msgf("Failed to create decoder for key %s: %s", key, err)
+				return nil
 			}
-
-			err = decoder.Decode(c)
-			if err != nil {
+			if err := decoder.Decode(v); err != nil {
 				log.Error().Msgf("Failed to decode configuration for key %s: %s", key, err)
-				continue
+				return nil
+			}
+		default:
+			log.Debug().Msgf("Skipping key %s: unsupported type %T", key, val)
+			return nil
+		}
+		return &newConfig
+	}
+
+	// Handle flat keys (skip "evolve" namespace)
+	for key, val := range configs {
+		if key == "evolve" {
+			continue
+		}
+		if cfg := decodeConfig(key, val); cfg != nil {
+			configurations[key] = cfg
+			log.Debug().Msgf("Loaded configuration for key: %s", key)
+		}
+	}
+
+	// Handle nested keys under evolve.api-gateway.*
+	if evolve, ok := configs["evolve"].(map[string]any); ok {
+		if apiGateway, ok := evolve["api-gateway"].(map[string]any); ok {
+			for key, val := range apiGateway {
+				if cfg := decodeConfig(key, val); cfg != nil {
+					configurations[key] = cfg
+					log.Debug().Msgf("Loaded configuration for nested key: %s", key)
+				}
 			}
 		}
-
-		configurations[key] = &newConfig
 	}
 
 	log.Debug().Msgf("Loaded configurations: %v", configurations)
-
 	return internal.MergeConfigurations(configurations), nil
 }
