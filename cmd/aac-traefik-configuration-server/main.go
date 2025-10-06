@@ -15,15 +15,18 @@ import (
 	"github.com/traefik/traefik/v3/pkg/config/dynamic"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 )
 
 type config struct {
-	LogLevel        string        `env:"LOG_LEVEL" envDefault:"INFO"`
-	Endpoint        string        `env:"AZURE_APP_CONFIGURATION_ENDPOINT"`
-	RefreshInterval time.Duration `env:"REFRESH_INTERVAL" envDefault:"60s"`
-	LabelFilter     string        `env:"LABEL_FILTER"`
-	KeyFilter       string        `env:"KEY_FILTER" envDefault:"*"`
+	LogLevel             string        `env:"LOG_LEVEL" envDefault:"INFO"`
+	Endpoint             string        `env:"AZURE_APP_CONFIGURATION_ENDPOINT"`
+	RefreshInterval      time.Duration `env:"REFRESH_INTERVAL" envDefault:"60s"`
+	LabelFilter          string        `env:"LABEL_FILTER"`
+	KeyFilter            string        `env:"KEY_FILTER" envDefault:"*"`
+	ConfigurationSubPath string        `env:"CONFIGURATION_SUB_PATH" envDefault:""`
+	IgnoreSubPath        bool          `env:"IGNORE_SUB_PATH" envDefault:"false"`
 }
 
 var cfg config
@@ -193,25 +196,64 @@ func loadConfigurations(appConfig *azureappconfiguration.AzureAppConfiguration) 
 		return &newConfig
 	}
 
-	// Handle flat keys (skip "evolve" namespace)
-	for key, val := range configs {
-		if key == "evolve" {
-			continue
+	// Helper to navigate nested maps using dot notation path
+	navigateToSubPath := func(data map[string]any, path string) (map[string]any, bool) {
+		if path == "" {
+			return data, true
 		}
-		if cfg := decodeConfig(key, val); cfg != nil {
-			configurations[key] = cfg
-			log.Debug().Msgf("Loaded configuration for key: %s", key)
+		
+		parts := strings.Split(path, ".")
+		current := data
+		
+		for _, part := range parts {
+			if next, ok := current[part].(map[string]any); ok {
+				current = next
+			} else {
+				log.Debug().Msgf("Sub-path not found: %s (stopped at %s)", path, part)
+				return nil, false
+			}
 		}
+		
+		return current, true
 	}
 
-	// Handle nested keys under evolve.api-gateway.*
-	if evolve, ok := configs["evolve"].(map[string]any); ok {
-		if apiGateway, ok := evolve["api-gateway"].(map[string]any); ok {
-			for key, val := range apiGateway {
-				if cfg := decodeConfig(key, val); cfg != nil {
-					configurations[key] = cfg
-					log.Debug().Msgf("Loaded configuration for nested key: %s", key)
+	// Process configurations based on sub-path settings
+	if cfg.IgnoreSubPath {
+		// Process all top-level keys, ignoring sub-path
+		for key, val := range configs {
+			if config := decodeConfig(key, val); config != nil {
+				configurations[key] = config
+				log.Debug().Msgf("Loaded configuration for key: %s", key)
+			}
+		}
+	} else if cfg.ConfigurationSubPath != "" {
+		// Navigate to the specified sub-path
+		if subConfigs, found := navigateToSubPath(configs, cfg.ConfigurationSubPath); found {
+			for key, val := range subConfigs {
+				if config := decodeConfig(key, val); config != nil {
+					configurations[key] = config
+					log.Debug().Msgf("Loaded configuration for sub-path key: %s", key)
 				}
+			}
+		}
+		
+		// Also process top-level keys that are not part of the sub-path
+		subPathParts := strings.Split(cfg.ConfigurationSubPath, ".")
+		rootKey := subPathParts[0]
+		for key, val := range configs {
+			if key != rootKey {
+				if config := decodeConfig(key, val); config != nil {
+					configurations[key] = config
+					log.Debug().Msgf("Loaded configuration for top-level key: %s", key)
+				}
+			}
+		}
+	} else {
+		// Default behavior: process all top-level keys
+		for key, val := range configs {
+			if config := decodeConfig(key, val); config != nil {
+				configurations[key] = config
+				log.Debug().Msgf("Loaded configuration for key: %s", key)
 			}
 		}
 	}
