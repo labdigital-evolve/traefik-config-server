@@ -6,7 +6,7 @@ import (
 	"github.com/Azure/AppConfiguration-GoProvider/azureappconfiguration"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
-	"github.com/Azure/azure-sdk-for-go/sdk/data/azappconfig"
+	"github.com/Azure/azure-sdk-for-go/sdk/data/azappconfig/v2"
 	"github.com/caarlos0/env/v11"
 	"github.com/labdigital-evolve/traefik-config-server/internal"
 	"github.com/mitchellh/mapstructure"
