@@ -10,6 +10,8 @@ jobs:
   goreleaser:
     # We don't want ubuntu-24-4 yet, because it is missing some packages
     runs-on: ubuntu-22.04
+    outputs:
+      tag: ${{ steps.latest.outputs.output }}
     steps:
       - name: Check out code
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -45,3 +47,94 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           path: dist/*
+
+      # The SBOM job scans these two binaries. Nothing else is uploaded for it.
+      - name: Upload binaries for SBOM
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: server-binaries
+          path: dist/*_linux_amd64*/bin/aac-traefik-*
+          if-no-files-found: error
+          retention-days: 1
+
+  # Scan the released binaries, not go.mod: buildinfo lists only the modules
+  # that are linked in. Both servers share one module, so one SBOM covers them.
+  # No checkout, no DT secret.
+  sbom:
+    needs: goreleaser
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # attach the SBOM to the release
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: server-binaries
+          path: bin
+
+      - uses: anchore/sbom-action/download-syft@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
+        id: syft
+
+      # SPDX for the release page, CycloneDX 1.6 for DependencyTrack. The two
+      # binaries link mostly the same modules, so drop file entries and
+      # duplicates from the CycloneDX file.
+      - name: Generate SBOM
+        env:
+          SYFT: ${{ steps.syft.outputs.cmd }}
+          SYFT_FILE_METADATA_SELECTION: none
+          TAG: ${{ needs.goreleaser.outputs.tag }}
+        run: |
+          set -euo pipefail
+          "$SYFT" dir:bin \
+            --source-name traefik-config-server \
+            --source-version "$TAG" \
+            -o spdx-json=traefik-config-server.spdx.json \
+            -o cyclonedx-json@1.6=traefik-config-server.raw.cdx.json
+          jq '.components |= (map(select(.type != "file")) | unique_by(.purl))' \
+            traefik-config-server.raw.cdx.json > traefik-config-server.cdx.json
+
+      - name: Attach SBOM to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.goreleaser.outputs.tag }}
+        run: gh release upload "$TAG" traefik-config-server.spdx.json traefik-config-server.cdx.json --clobber --repo "$GITHUB_REPOSITORY"
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: sbom-cyclonedx
+          path: traefik-config-server.cdx.json
+          retention-days: 7
+
+  # Separate job so the DT key is never present while other repo code runs.
+  dependencytrack:
+    needs: [goreleaser, sbom]
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: sbom-cyclonedx
+
+      # Each release becomes a version under the "oss/go/traefik-config-server"
+      # library container (OSS > OSS Go), which rolls up the latest version.
+      - name: Upload SBOM to DependencyTrack
+        env:
+          DT_API_KEY: ${{ secrets.DEPENDENCYTRACK_OSS_APIKEY }}
+          DT_URL: https://dependencytrack-api.labdigital.nl:8443
+          PROJECT: oss/go/traefik-config-server
+          TAG: ${{ needs.goreleaser.outputs.tag }}
+        run: |
+          set -euo pipefail
+          if [ -z "${DT_API_KEY}" ]; then
+            echo "::error::DEPENDENCYTRACK_OSS_APIKEY is not available to this repo"
+            exit 1
+          fi
+          curl -sS --fail-with-body -X POST "${DT_URL}/api/v1/bom" \
+            -H "X-Api-Key: ${DT_API_KEY}" \
+            -F "autoCreate=true" \
+            -F "projectName=${PROJECT}" \
+            -F "projectVersion=${TAG}" \
+            -F "parentName=${PROJECT}" \
+            -F "isLatest=true" \
+            -F "bom=@traefik-config-server.cdx.json"
